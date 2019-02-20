@@ -259,9 +259,9 @@ boolean Plugin_135(byte function, struct EventStruct *event, String& string)
         addFormTextBox(F("Load Resistance"), F("plugin_135_RLOAD"), String(Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0]), 33);
         addUnit(F("10.00"));
         addFormTextBox(F("R Zero"), F("plugin_135_RZERO"), String(Settings.TaskDevicePluginConfigFloat[event->TaskIndex][1]), 33);
-        addUnit(F("76.63"));
+        addUnit(F("1630.00"));
         addFormTextBox(F("CO2 Level ref."), F("plugin_135_ATMOCO2"), String(Settings.TaskDevicePluginConfigFloat[event->TaskIndex][2]), 33);
-        addUnit(F("397.13"));
+        addUnit(F("410.00"));
 
         addFormSeparator(2);
         // mode

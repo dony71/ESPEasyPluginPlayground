@@ -14,14 +14,17 @@
 #define PLUGIN_134
 #define PLUGIN_ID_134 134
 #define PLUGIN_NAME_134 "Dust sensor - PPD42NJ/NS [TESTING]"
-#define PLUGIN_VALUENAME1_134 "PM1.0" // from the datasheet the detection is from PM1 and up. You could have from PM1 to PM2.5, on subtracting PM2.5 value on PM1 value. This value come from the pin #4
-#define PLUGIN_VALUENAME2_134 "ppmvPM1.0"
-#define PLUGIN_VALUENAME3_134 "PM2.5" // from the datasheet the detection is from PM2.5 and up. This value come from the pin #2. With different resistor topn the pin #1, you could adjust the size threshold detection
-#define PLUGIN_VALUENAME4_134 "ppmvPM2.5"
-#define PLUGIN_VALUENAME5_134 "AQI" // Air Quality Index Level
+#define PLUGIN_VALUENAME1_134 "PM10_ug_per_m3" // from the datasheet the detection is from PM1 and up. You could have from PM1 to PM2.5, on subtracting PM2.5 value on PM1 value. This value come from the pin #4
+#define PLUGIN_VALUENAME2_134 "PM25_ug_per_m3"
+#define PLUGIN_VALUENAME3_134 "PM10_mili_ppmv" // from the datasheet the detection is from PM2.5 and up. This value come from the pin #2. With different resistor topn the pin #1, you could adjust the size threshold detection
+#define PLUGIN_VALUENAME4_134 "PM25_mili_ppmv"
+#define PLUGIN_VALUENAME5_134 "AQI_PM10" // Air Quality Index Level
+#define PLUGIN_VALUENAME6_134 "AQI_PM25" // Air Quality Index Level
+#define PLUGIN_VALUENAME7_134 "AQI_PM10_Status" // Air Quality Index Level
+#define PLUGIN_VALUENAME8_134 "AQI_PM25_Status" // Air Quality Index Level
 
-//#define DUST_SENSOR_DIGITAL_PIN_PM10  D3        // PPD42 Pin 2 of PPD42 (red)
-//#define DUST_SENSOR_DIGITAL_PIN_PM25  D5        // PPD42 Pin 4 (yellow)
+//#define DUST_SENSOR_DIGITAL_PIN_PM10  D6        // PPD42 Pin 2 of PPD42 (red)
+//#define DUST_SENSOR_DIGITAL_PIN_PM25  D7        // PPD42 Pin 4 (yellow)
 //#define COUNTRY                       2         // 0. France, 1. Europe, 2. USA/China
 #define FRANCE                        0
 #define EUROPE                        1
@@ -63,14 +66,14 @@ struct structAQI {
   // Sensor AQI data
   float         concentrationPM25  = 0;
   float         concentrationPM10  = 0;
-  int           AqiPM10            = -1;
-  int           AqiPM25            = -1;
+  int           AqiPM10            = 0;
+  int           AqiPM25            = 0;
   float         ppmvPM10           = 0;
   float         ppmvPM25           = 0;
   // Indicateurs AQI - AQI display
-  int           AQI                = 0;
   //String        AqiString          = "";
-  int           AqiString          = -1;
+  int           AqiStringPM10          = 0;
+  int           AqiStringPM25          = 0;
   //int           AqiColor           = 0;
   // Country Selection for AQI Level
   byte          COUNTRY            = 2;   // default USA
@@ -93,12 +96,14 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
       {
         Device[++deviceCount].Number = PLUGIN_ID_134;
         Device[deviceCount].Type = DEVICE_TYPE_DUAL;
-        Device[deviceCount].VType = SENSOR_TYPE_QUAD;
+//        Device[deviceCount].VType = SENSOR_TYPE_QUAD;
+//        Device[deviceCount].VType = SENSOR_TYPE_HEXA;
+        Device[deviceCount].VType = SENSOR_TYPE_OCTA;
         Device[deviceCount].Ports = 0;
         Device[deviceCount].PullUpOption = false;
         Device[deviceCount].InverseLogicOption = false;
         Device[deviceCount].FormulaOption = true;
-        Device[deviceCount].ValueCount = 5;
+        Device[deviceCount].ValueCount = 8;
         Device[deviceCount].SendDataOption = true;
         Device[deviceCount].TimerOption = true;
         Device[deviceCount].GlobalSyncOption = true;
@@ -118,6 +123,9 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[2], PSTR(PLUGIN_VALUENAME3_134));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[3], PSTR(PLUGIN_VALUENAME4_134));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[4], PSTR(PLUGIN_VALUENAME5_134));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[5], PSTR(PLUGIN_VALUENAME6_134));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[6], PSTR(PLUGIN_VALUENAME7_134));
+        strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[7], PSTR(PLUGIN_VALUENAME8_134));
         break;
       }
 
@@ -142,6 +150,7 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
         int optionValues[3] = { FRANCE, EUROPE, USA_CHINA };
         byte countryType = Settings.TaskDevicePluginConfig[event->TaskIndex][3];
         addFormSelector(F("AQI Level Country"), F("plugin_134_country_type"), 3, options, optionValues, countryType);
+
         LoadTaskSettings(event->TaskIndex); // we need to restore our original taskvalues!
         
         success = true;
@@ -208,33 +217,49 @@ boolean Plugin_134(byte function, struct EventStruct *event, String& string)
           //float temperature = UserVar[BaseVarIndex1]; // in degrees C
           AQI.temperature = UserVar[BaseVarIndex1] + 273.15; // in Kelvin
 
-          AQI.ppmvPM10 = concentrationPM10_mgm3(AQI.concentrationPM10) * ((0.08205*AQI.temperature)/28.97);
-          AQI.ppmvPM25 = concentrationPM25_mgm3(AQI.concentrationPM25) * ((0.08205*AQI.temperature)/28.97);
+          //AQI.ppmvPM10 = concentrationPM10_mgm3(AQI.concentrationPM10) * ((0.08205*AQI.temperature)/28.97);
+          AQI.ppmvPM10 = AQI.concentrationPM10 * ((0.08205*AQI.temperature)/28.97);
+          //AQI.ppmvPM25 = concentrationPM25_mgm3(AQI.concentrationPM25) * ((0.08205*AQI.temperature)/28.97);
+          AQI.ppmvPM25 = AQI.concentrationPM25 * ((0.08205*AQI.temperature)/28.97);
 
-          UserVar[event->BaseVarIndex + 1] = AQI.ppmvPM10;
+          UserVar[event->BaseVarIndex + 2] = AQI.ppmvPM10;
           UserVar[event->BaseVarIndex + 3] = AQI.ppmvPM25;
         } else {
-          UserVar[event->BaseVarIndex + 1] = NAN;
+          UserVar[event->BaseVarIndex + 2] = NAN;
           UserVar[event->BaseVarIndex + 3] = NAN;
         }
 
         UserVar[event->BaseVarIndex + 0] = AQI.concentrationPM10;
-        log = F("PPD42NJ/NS: Concentration PM1.0 in pcs/0.01cuft : ");
+        log = F("PPD42NJ/NS: Concentration PM1.0 (ug/m3) : ");
         log += UserVar[event->BaseVarIndex + 0];
         addLog(LOG_LEVEL_INFO, log);
-        log = F("PPD42NJ/NS: Concentration PM1.0 in ppmv : ");
-        log += UserVar[event->BaseVarIndex + 1];
-        addLog(LOG_LEVEL_INFO, log);
-        UserVar[event->BaseVarIndex + 2] = AQI.concentrationPM25;
-        log = F("PPD42NJ/NS: Concentration PM2.5 in pcs/0.01cuft : ");
+        log = F("PPD42NJ/NS: Concentration PM1.0 (mili ppmv) : ");
         log += UserVar[event->BaseVarIndex + 2];
         addLog(LOG_LEVEL_INFO, log);
-        log = F("PPD42NJ/NS: Concentration PM2.5 in ppmv : ");
+        UserVar[event->BaseVarIndex + 4] = AQI.AqiPM10;
+        log = F("PPD42NJ/NS: Air Quality PM1.0 : ");
+        log += UserVar[event->BaseVarIndex + 4];
+        addLog(LOG_LEVEL_INFO, log);
+        UserVar[event->BaseVarIndex + 6] = AQI.AqiStringPM10;
+        log = F("PPD42NJ/NS: AQI PM1.0 Status : ");
+        log += UserVar[event->BaseVarIndex + 6];
+//        log += AQI.AqiStringPM10;
+        addLog(LOG_LEVEL_INFO, log);
+        UserVar[event->BaseVarIndex + 1] = AQI.concentrationPM25;
+        log = F("PPD42NJ/NS: Concentration PM2.5 (ug/m3) : ");
+        log += UserVar[event->BaseVarIndex + 1];
+        addLog(LOG_LEVEL_INFO, log);
+        log = F("PPD42NJ/NS: Concentration PM2.5 (mili ppmv) : ");
         log += UserVar[event->BaseVarIndex + 3];
         addLog(LOG_LEVEL_INFO, log);
-        UserVar[event->BaseVarIndex + 4] = AQI.AqiString;
-        log = F("PPD42NJ/NS: Air Quality Index Level: ");
-        log += UserVar[event->BaseVarIndex + 4];
+        UserVar[event->BaseVarIndex + 5] = AQI.AqiPM25;
+        log = F("PPD42NJ/NS: Air Quality PM2.5 : ");
+        log += UserVar[event->BaseVarIndex + 5];
+        addLog(LOG_LEVEL_INFO, log);
+        UserVar[event->BaseVarIndex + 7] = AQI.AqiStringPM25;
+        log = F("PPD42NJ/NS: AQI PM2.5 Status : ");
+        log += UserVar[event->BaseVarIndex + 7];
+//        log += AQI.AqiStringPM25;
         addLog(LOG_LEVEL_INFO, log);
 
         success = true;
@@ -252,14 +277,14 @@ void updateAQI() {
   float concentration = 1.1 * pow( ratio, 3) - 3.8 *pow(ratio, 2) + 520 * ratio + 0.62; // using spec sheet curve
   if ( sampletime_ms < 3600000 ) { concentration = concentration * ( sampletime_ms / 3600000.0 ); }
   AQI.lowpulseoccupancyPM10 = 0;
-  AQI.concentrationPM10 = concentration * 1000;
+  AQI.concentrationPM10 = concentration;
   //AQI.ppmvPM10 = concentrationPM10_mgm3(AQI.concentrationPM10) * ((0.08205*AQI.temperature)/28.97);
 
   ratio = AQI.lowpulseoccupancyPM25 / (sampletime_ms * 10.0);
   concentration = 1.1 * pow( ratio, 3) - 3.8 *pow(ratio, 2) + 520 * ratio + 0.62;
   if ( sampletime_ms < 3600000 ) { concentration = concentration * ( sampletime_ms / 3600000.0 ); }
   AQI.lowpulseoccupancyPM25 = 0;
-  AQI.concentrationPM25 = concentration * 1000;
+  AQI.concentrationPM25 = concentration;
   //AQI.ppmvPM25 = concentrationPM25_mgm3(AQI.concentrationPM25) * ((0.08205*AQI.temperature)/28.97);
 
   AQI.starttime = millis();
@@ -267,8 +292,9 @@ void updateAQI() {
   // Actualise l'AQI de chaque capteur - update AQI for each sensor 
   getAQILevel();
   // Actualise l'indice AQI - update AQI index
-  updateAQILevel();
-  updateAQIDisplay();
+  //updateAQILevel(AQI.AqiPM10, AQI.AqiPM25);
+  AQI.AqiStringPM10 = updateAQIDisplay(AQI.AqiPM10);
+  AQI.AqiStringPM25 = updateAQIDisplay(AQI.AqiPM25);
 }
 
 void getPM(int DUST_SENSOR_DIGITAL_PIN_PM10, int DUST_SENSOR_DIGITAL_PIN_PM25) {
@@ -277,11 +303,15 @@ void getPM(int DUST_SENSOR_DIGITAL_PIN_PM10, int DUST_SENSOR_DIGITAL_PIN_PM25) {
   timer.run();
 }
 
-void updateAQILevel() {
-  AQI.AQI = AQI.AqiPM10;
+/*
+void updateAQILevel(int aqipm10, int aqipm25) {
+  AQI.AqiPM10 = updateAQIDisplay(aqipm10);
+  AQI.AqiPM25 = updateAQIDisplay(aqipm25);
 }
+*/
 
 void getAQILevel() {
+/*
   if ( AQI.enableTEMP ) {
     if ( AQI.COUNTRY == 0 ) {
       // France
@@ -297,23 +327,24 @@ void getAQILevel() {
       AQI.AqiPM10 = getAQI( 1, AQI.ppmvPM10 );
     }
   } else {
+*/
     if ( AQI.COUNTRY == 0 ) {
       // France
-      AQI.AqiPM25 = getATMO( 0, AQI.concentrationPM25/1000 );
-      AQI.AqiPM10 = getATMO( 1, AQI.concentrationPM10/1000 );
+      AQI.AqiPM25 = getATMO( 0, AQI.concentrationPM25 );
+      AQI.AqiPM10 = getATMO( 1, AQI.concentrationPM10 );
     } else if ( AQI.COUNTRY == 1 ) {
       // Europe
-      AQI.AqiPM25 = getACQI( 0, AQI.concentrationPM25/1000 );
-      AQI.AqiPM10 = getACQI( 1, AQI.concentrationPM10/1000 );
+      AQI.AqiPM25 = getACQI( 0, AQI.concentrationPM25 );
+      AQI.AqiPM10 = getACQI( 1, AQI.concentrationPM10 );
     } else {
       // USA / China
-      AQI.AqiPM25 = getAQI( 0, AQI.concentrationPM25/1000 );
-      AQI.AqiPM10 = getAQI( 1, AQI.concentrationPM10/1000 );
+      AQI.AqiPM25 = getAQI( 0, AQI.concentrationPM25 );
+      AQI.AqiPM10 = getAQI( 1, AQI.concentrationPM10 );
     }
-  }
+//  }
 }
 
-void updateAQIDisplay() {
+int updateAQIDisplay(int AQIpm) {
   // 1 EXCELLENT
   // 2 GOOD
   // 3 ACCEPTABLE
@@ -321,72 +352,73 @@ void updateAQIDisplay() {
   // 5 HEAVY
   // 6 SEVERE
   // 7 HAZARDOUS
+  int AqiString;
   if ( AQI.COUNTRY == 0 ) {
     // Système ATMO français - French ATMO AQI system
-    switch ( AQI.AQI) {
+    switch (AQIpm) {
       case 10:
-        AQI.AqiString = SEVERE;
+        return AqiString = SEVERE;
         break;
       case 9:
-        AQI.AqiString = HEAVY;
+        return AqiString = HEAVY;
         break;
       case 8:
-        AQI.AqiString = HEAVY;
+        return AqiString = HEAVY;
         break;
       case 7:
-        AQI.AqiString = MODERATE;
+        return AqiString = MODERATE;
         break;
       case 6:
-        AQI.AqiString = MODERATE;
+        return AqiString = MODERATE;
         break;
       case 5:
-        AQI.AqiString = ACCEPTABLE;
+        return AqiString = ACCEPTABLE;
         break;
       case 4:
-        AQI.AqiString = GOOD;
+        return AqiString = GOOD;
         break;
       case 3:
-        AQI.AqiString = GOOD;
+        return AqiString = GOOD;
         break;
       case 2:
-        AQI.AqiString = EXCELLENT;
+        return AqiString = EXCELLENT;
         break;
       case 1:
-        AQI.AqiString = EXCELLENT;
+        return AqiString = EXCELLENT;
         break;
       }
   } else if ( AQI.COUNTRY == 1 ) {
     // European CAQI
-    switch ( AQI.AQI) {
+    switch (AQIpm) {
       case 25:
-        AQI.AqiString = GOOD;
+        return AqiString = GOOD;
         break;
       case 50:
-        AQI.AqiString = ACCEPTABLE;
+        return AqiString = ACCEPTABLE;
         break;
       case 75:
-        AQI.AqiString = MODERATE;
+        return AqiString = MODERATE;
         break;
       case 100:
-        AQI.AqiString = HEAVY;
+        return AqiString = HEAVY;
         break;
       default:
-        AQI.AqiString = SEVERE;
+        return AqiString = SEVERE;
       }
   } else if ( AQI.COUNTRY == 2 ) {
     // USA / CN
-    if ( AQI.AQI <= 50 ) {
-      AQI.AqiString = GOOD;
-    } else if ( AQI.AQI > 50 && AQI.AQI <= 100 ) {
-      AQI.AqiString = ACCEPTABLE;
-    } else if ( AQI.AQI > 100 && AQI.AQI <= 150 ) {
-      AQI.AqiString = MODERATE;
-    } else if ( AQI.AQI > 150 && AQI.AQI <= 200 ) {
-      AQI.AqiString = HEAVY;
-    } else if ( AQI.AQI > 200 && AQI.AQI <= 300 ) {
-      AQI.AqiString = SEVERE;
+    if ( AQIpm <= 50 ) {
+      return AqiString = GOOD;
+    } else if ( AQIpm > 50 && AQIpm <= 100 ) {
+      return AqiString = ACCEPTABLE;
+    } else if ( AQIpm > 100 && AQIpm <= 150 ) {
+      return AqiString = MODERATE;
+    } else if ( AQIpm > 150 && AQIpm <= 200 ) {
+      return AqiString = HEAVY;
+    } else if ( AQIpm > 200 && AQIpm <= 300 ) {
+      return AqiString = SEVERE;
     } else {
-      AQI.AqiString = HAZARDOUS;
+      return AqiString = HAZARDOUS;
     }
   }
 }
@@ -529,6 +561,7 @@ int getAQI(int sensor, float density) {
   }
 }
 
+/*
 float concentrationPM25_mgm3(float concentrationPM25) {
   double pi = 3.14159;
   double density = 1.65 * pow (10, 12);
@@ -548,6 +581,7 @@ float concentrationPM10_mgm3(float concentrationPM10) {
   double K = 3531.5;
   return (concentrationPM10) * K * mass10;
 }
+*/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif // USES_P134
