@@ -151,6 +151,12 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                         log = F("Sensor Voltage: ");
                         log += SensorVoltage;
                         addLog(LOG_LEVEL_INFO, log);	*/
+                        // Apply low voltage to sensor for getting RZero
+                        digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
+//                        delay(100);
+                        log = F("MQ7: Ready for getting RZero, set Sensor Voltage LOW");
+                        addLog(LOG_LEVEL_INFO, log);
+                        SensorVoltage = 0;
                         NextState = GET_RZERO;
                         previousMillis = currentMillis;
                     }
@@ -159,12 +165,6 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                 }
                 case GET_RZERO: 
                 {   // Get RZero
-                    // Apply low voltage to sensor for getting RZero
-                    digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
-//                    delay(100);
-                    String log = F("MQ7: Ready for getting RZero, set Sensor Voltage LOW");
-                    addLog(LOG_LEVEL_INFO, log);
-                    SensorVoltage = 0;
                     currentMillis = millis();
 /*                    log = F("Interval Millis ");
                     log += currentMillis - previousMillis;
@@ -236,6 +236,12 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                         log = F("Sensor Voltage: ");
                         log += SensorVoltage;
                         addLog(LOG_LEVEL_INFO, log);	*/
+                        // Apply low voltage to sensor to get CO concentration
+                        digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
+//                        delay(100);
+                        log = F("MQ7: Ready for getting concentration, set Sensor Voltage LOW");
+                        addLog(LOG_LEVEL_INFO, log);
+                        SensorVoltage = 0;
                         NextState = GET_ANALOG;
                         previousMillis = currentMillis;
                     }
@@ -244,12 +250,6 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                 }
                 case GET_ANALOG: 
                 {   // Get concentration
-                    // Apply low voltage to sensor to get CO concentration
-                    digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
-//                    delay(100);
-                    String log = F("MQ7: Ready for getting concentration, set Sensor Voltage LOW");
-                    addLog(LOG_LEVEL_INFO, log);
-                    SensorVoltage = 0;
                     currentMillis = millis();
 /*                    log = F("Interval Millis ");
                     log += currentMillis - previousMillis;
