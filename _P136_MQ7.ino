@@ -140,7 +140,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                     addLog(LOG_LEVEL_INFO, log);	*/
                     // Check high voltage to sensor >= 60s
                     if (currentMillis - previousMillis >= heat_interval) {
-                        String log = F("Sensor already warmed up for 60s, ready for getting RZero");
+                        String log = F("MQ7: Sensor already warmed up for 60s, ready for getting RZero");
                         addLog(LOG_LEVEL_INFO, log);
 /*                        log = F("Interval Millis ");
                         log += currentMillis - previousMillis;
@@ -162,7 +162,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                     // Apply low voltage to sensor for getting RZero
                     digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
 //                    delay(100);
-                    String log = F("Ready for getting RZero, set Sensor Voltage LOW");
+                    String log = F("MQ7: Ready for getting RZero, set Sensor Voltage LOW");
                     addLog(LOG_LEVEL_INFO, log);
                     SensorVoltage = 0;
                     currentMillis = millis();
@@ -179,7 +179,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                     if (currentMillis - previousMillis >= read_interval) {
                         sensorValue = analogRead(SENSOR_PIN);
 //                        delay(20);
-                        String log = F("Read Analog Sensor for RZero");
+                        String log = F("MQ7: Read Analog Sensor for RZero");
                         addLog(LOG_LEVEL_INFO, log);
                         sensor_volt = sensorValue/1024*3.3;
                         RS_air = (3.3-sensor_volt)/sensor_volt;
@@ -202,7 +202,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                         // Apply back high voltage to sensor
                         digitalWrite(Plugin_Voltage_Select_Pin, LOW);
 //                        delay(100);
-                        log = F("Heat Sensor for getting concentration, set Sensor Voltage HIGH");
+                        log = F("MQ7: Heat Sensor for getting concentration, set Sensor Voltage HIGH");
                         addLog(LOG_LEVEL_INFO, log);
                         SensorVoltage = 1;
                         NextState = DAQ_WARMUP;
@@ -225,7 +225,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                     addLog(LOG_LEVEL_INFO, log);	*/
                     // Check high voltage to sensor >= 60s
                     if (currentMillis - previousMillis >= heat_interval) {
-                        String log = F("Sensor already warmed up for 60s, ready for getting concentration");
+                        String log = F("MQ7: Sensor already warmed up for 60s, ready for getting concentration");
                         addLog(LOG_LEVEL_INFO, log);
 /*                        log = F("Interval Millis ");
                         log += currentMillis - previousMillis;
@@ -247,7 +247,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                     // Apply low voltage to sensor to get CO concentration
                     digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
 //                    delay(100);
-                    String log = F("Ready for getting concentration, set Sensor Voltage LOW");
+                    String log = F("MQ7: Ready for getting concentration, set Sensor Voltage LOW");
                     addLog(LOG_LEVEL_INFO, log);
                     SensorVoltage = 0;
                     currentMillis = millis();
@@ -264,7 +264,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                     if (currentMillis - previousMillis >= read_interval) {
                         sensorValue = analogRead(SENSOR_PIN);
 //                        delay(20);
-                        String log = F("Read Analog Sensor for CO concentration");
+                        String log = F("MQ7: Read Analog Sensor for CO concentration");
                         addLog(LOG_LEVEL_INFO, log);
                         sensor_volt = sensorValue/1024*3.3;
                         RS_gas = (3.3-sensor_volt)/sensor_volt;
@@ -289,7 +289,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                         // Apply back high voltage to sensor
                         digitalWrite(Plugin_Voltage_Select_Pin, LOW);
 //                        delay(100);
-                        log = F("Heat Sensor for getting RZero, set Sensor Voltage HIGH");
+                        log = F("MQ7: Heat Sensor for getting RZero, set Sensor Voltage HIGH");
                         addLog(LOG_LEVEL_INFO, log);
                         SensorVoltage = 1;
                         NextState = GET_DIGITAL;
@@ -314,7 +314,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
                     if (currentMillis - previousMillis >= flag_interval) {
                         CO_Limit = digitalRead(Plugin_MQ7_CO_Limit_Pin);
 //                        delay(20);
-                        String log = F("Read Digital Sensor for CO limit");
+                        String log = F("MQ7: Read Digital Sensor for CO limit");
                         addLog(LOG_LEVEL_INFO, log);
                         UserVar[event->BaseVarIndex + 1] = CO_Limit;
                         log = F("MQ7: CO_Limit: ");
