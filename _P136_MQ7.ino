@@ -8,16 +8,17 @@
 #define PLUGIN_136
 #define PLUGIN_ID_136           136
 #define PLUGIN_NAME_136         "Gases - MQ7 [TESTING]"
-#define PLUGIN_VALUENAME1_136   "CO"
+#define PLUGIN_VALUENAME1_136   "CO_ppm"
 #define PLUGIN_VALUENAME2_136   "CO_Limit"
 
 /// Analog Sensor Pin
 #define SENSOR_PIN  A0
 
-#define CAL_WARMUP  1
-#define GET_RZERO   2
-#define DAQ_WARMUP  3
-#define GET_SAMPLE  4
+#define CAL_WARMUP   1
+#define GET_RZERO    2
+#define DAQ_WARMUP   3
+#define GET_ANALOG   4
+#define GET_DIGITAL  5
 
 byte Plugin_Voltage_Select_Pin;
 byte Plugin_MQ7_CO_Limit_Pin;
@@ -26,12 +27,14 @@ boolean Plugin_136_init = false;
 unsigned long previousMillis;
 unsigned long currentMillis;
 
-const long read_interval = 90000;
-const long heat_interval = 60000;
+const long read_interval = 90000;  // 90 seconds
+const long heat_interval = 60000;  // 60 seconds
+const long flag_interval = 30000;  // 30 seconds
 
 int CurrentState;
 int NextState;
 int SensorVoltage;
+int CO_Limit;
 
 float sensorValue;
 float sensor_volt;
@@ -40,6 +43,7 @@ float RZero;
 float RS_gas;
 float R_ZERO;
 float Ratio;
+float Exponent;
 float CO_PPM;
 
 //==============================================
@@ -85,7 +89,7 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
         {
             addFormSeparator(2);
             addFormTextBox(F("R Zero"), F("plugin_136_RZERO"), String(Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0]), 33);
-            addUnit(F("2.60"));
+            addUnit(F("260.00"));
 
             success = true;
             break;
@@ -108,7 +112,10 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
             pinMode(Plugin_Voltage_Select_Pin, OUTPUT);
 
             digitalWrite(Plugin_Voltage_Select_Pin, LOW);
+//            delay(100);
             SensorVoltage = 1;
+            CO_Limit = 1;
+            UserVar[event->BaseVarIndex + 1] = CO_Limit;
             previousMillis = 0;
             CurrentState = 1;
             NextState = 1;
@@ -121,102 +128,228 @@ boolean Plugin_136(byte function, struct EventStruct *event, String& string)
             switch (CurrentState) {
                 case CAL_WARMUP: 
                 {   // Warm up Sensor for RZero Calibration
-                    CurrentState = NextState;
-                    // Check high voltage to sensor >= 60s
                     currentMillis = millis();
+/*                    String log = F("Interval Millis ");
+                    log += currentMillis - previousMillis;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Current State: ");
+                    log += CurrentState;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Sensor Voltage: ");
+                    log += SensorVoltage;
+                    addLog(LOG_LEVEL_INFO, log);	*/
+                    // Check high voltage to sensor >= 60s
                     if (currentMillis - previousMillis >= heat_interval) {
-                        String log = F("Wait 60s for MQ7 Sensor to warm up, ready for calibration");
+                        String log = F("Sensor already warmed up for 60s, ready for getting RZero");
                         addLog(LOG_LEVEL_INFO, log);
+/*                        log = F("Interval Millis ");
+                        log += currentMillis - previousMillis;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Current State: ");
+                        log += CurrentState;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Sensor Voltage: ");
+                        log += SensorVoltage;
+                        addLog(LOG_LEVEL_INFO, log);	*/
                         NextState = GET_RZERO;
                         previousMillis = currentMillis;
                     }
+                    CurrentState = NextState;
                     break;
                 }
                 case GET_RZERO: 
                 {   // Get RZero
-                    CurrentState = NextState;
                     // Apply low voltage to sensor for getting RZero
                     digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
+//                    delay(100);
+                    String log = F("Ready for getting RZero, set Sensor Voltage LOW");
+                    addLog(LOG_LEVEL_INFO, log);
                     SensorVoltage = 0;
-                    // To get RZero then check low voltage to sensor >= 90s
                     currentMillis = millis();
+/*                    log = F("Interval Millis ");
+                    log += currentMillis - previousMillis;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Current State: ");
+                    log += CurrentState;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Sensor Voltage: ");
+                    log += SensorVoltage;
+                    addLog(LOG_LEVEL_INFO, log);	*/
+                    // To get RZero then check low voltage to sensor >= 90s
                     if (currentMillis - previousMillis >= read_interval) {
                         sensorValue = analogRead(SENSOR_PIN);
+//                        delay(20);
+                        String log = F("Read Analog Sensor for RZero");
+                        addLog(LOG_LEVEL_INFO, log);
                         sensor_volt = sensorValue/1024*3.3;
                         RS_air = (3.3-sensor_volt)/sensor_volt;
-                        RZero = RS_air/(26+(1/3));
+                        //RZero = RS_air/(26+(1/3));
+                        RZero = RS_air/0.26;  // Assume sensor minimum range 10ppm => Rs/R0=0.2559
 
                         //UserVar[event->BaseVarIndex + 2] = (float)RZero;
-                        String log = F("MQ7: RZero: ");
+                        log = F("MQ7: RZero: ");
                         log += RZero;
                         addLog(LOG_LEVEL_INFO, log);
+/*                        log = F("Interval Millis ");
+                        log += currentMillis - previousMillis;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Current State: ");
+                        log += CurrentState;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Sensor Voltage: ");
+                        log += SensorVoltage;
+                        addLog(LOG_LEVEL_INFO, log);	*/
                         // Apply back high voltage to sensor
                         digitalWrite(Plugin_Voltage_Select_Pin, LOW);
+//                        delay(100);
+                        log = F("Heat Sensor for getting concentration, set Sensor Voltage HIGH");
+                        addLog(LOG_LEVEL_INFO, log);
                         SensorVoltage = 1;
                         NextState = DAQ_WARMUP;
                         previousMillis = currentMillis;
                     }
+                    CurrentState = NextState;
                     break;
                 }
                 case DAQ_WARMUP: 
                 {   // Warm up Sensor for getting concentration
-                    CurrentState = NextState;
-                    // Check high voltage to sensor >= 60s
                     currentMillis = millis();
+/*                    String log = F("Interval Millis ");
+                    log += currentMillis - previousMillis;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Current State: ");
+                    log += CurrentState;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Sensor Voltage: ");
+                    log += SensorVoltage;
+                    addLog(LOG_LEVEL_INFO, log);	*/
+                    // Check high voltage to sensor >= 60s
                     if (currentMillis - previousMillis >= heat_interval) {
-                        String log = F("Wait 60s for MQ7 Sensor to warm up, ready for getting concentration");
+                        String log = F("Sensor already warmed up for 60s, ready for getting concentration");
                         addLog(LOG_LEVEL_INFO, log);
-                        NextState = GET_SAMPLE;
+/*                        log = F("Interval Millis ");
+                        log += currentMillis - previousMillis;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Current State: ");
+                        log += CurrentState;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Sensor Voltage: ");
+                        log += SensorVoltage;
+                        addLog(LOG_LEVEL_INFO, log);	*/
+                        NextState = GET_ANALOG;
                         previousMillis = currentMillis;
                     }
+                    CurrentState = NextState;
                     break;
                 }
-                case GET_SAMPLE: 
+                case GET_ANALOG: 
                 {   // Get concentration
-                    CurrentState = NextState;
                     // Apply low voltage to sensor to get CO concentration
                     digitalWrite(Plugin_Voltage_Select_Pin, HIGH);
+//                    delay(100);
+                    String log = F("Ready for getting concentration, set Sensor Voltage LOW");
+                    addLog(LOG_LEVEL_INFO, log);
                     SensorVoltage = 0;
-                    // To get CO concentration then check low voltage to sensor >= 90s
                     currentMillis = millis();
+/*                    log = F("Interval Millis ");
+                    log += currentMillis - previousMillis;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Current State: ");
+                    log += CurrentState;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Sensor Voltage: ");
+                    log += SensorVoltage;
+                    addLog(LOG_LEVEL_INFO, log);	*/
+                    // To get CO concentration then check low voltage to sensor >= 90s
                     if (currentMillis - previousMillis >= read_interval) {
                         sensorValue = analogRead(SENSOR_PIN);
+//                        delay(20);
+                        String log = F("Read Analog Sensor for CO concentration");
+                        addLog(LOG_LEVEL_INFO, log);
                         sensor_volt = sensorValue/1024*3.3;
                         RS_gas = (3.3-sensor_volt)/sensor_volt;
                         R_ZERO = Settings.TaskDevicePluginConfigFloat[event->TaskIndex][0];
                         Ratio = RS_gas/R_ZERO; //Replace R_ZERO with the value found using the calibration code
-                        CO_PPM = 100 * pow(log10(40)/log10(0.09), Ratio); //Formula for co 2 concentration
+                        //CO_PPM = 100 * pow(log10(40)/log10(0.09), Ratio); //Formula for co 2 concentration
+                        Exponent = -(log10(1000)-log10(10))*log10(Ratio)/(0.53*2)+log10(0.02)+(0.53*3); //Formula for CO concentration from CO/PPM sensitivity charateristic graph in MQ-7 datasheet
+                        CO_PPM = pow(10, Exponent);
                         UserVar[event->BaseVarIndex] = (float)CO_PPM;
-                        String log = F("MQ7: CO: ");
+                        log = F("MQ7: CO: ");
                         log += CO_PPM;
                         addLog(LOG_LEVEL_INFO, log);
+/*                        log = F("Interval Millis ");
+                        log += currentMillis - previousMillis;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Current State: ");
+                        log += CurrentState;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Sensor Voltage: ");
+                        log += SensorVoltage;
+                        addLog(LOG_LEVEL_INFO, log);	*/
                         // Apply back high voltage to sensor
                         digitalWrite(Plugin_Voltage_Select_Pin, LOW);
+//                        delay(100);
+                        log = F("Heat Sensor for getting RZero, set Sensor Voltage HIGH");
+                        addLog(LOG_LEVEL_INFO, log);
                         SensorVoltage = 1;
+                        NextState = GET_DIGITAL;
+                        previousMillis = currentMillis;
+                    }
+                    CurrentState = NextState;
+                    break;
+                }
+                case GET_DIGITAL: 
+                {   // Get CO limit flag
+                    currentMillis = millis();
+/*                    String log = F("Interval Millis ");
+                    log += currentMillis - previousMillis;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Current State: ");
+                    log += CurrentState;
+                    addLog(LOG_LEVEL_INFO, log);
+                    log = F("Sensor Voltage: ");
+                    log += SensorVoltage;
+                    addLog(LOG_LEVEL_INFO, log);	*/
+                    // To get CO limit flag then check high voltage to sensor >= 30s
+                    if (currentMillis - previousMillis >= flag_interval) {
+                        CO_Limit = digitalRead(Plugin_MQ7_CO_Limit_Pin);
+//                        delay(20);
+                        String log = F("Read Digital Sensor for CO limit");
+                        addLog(LOG_LEVEL_INFO, log);
+                        UserVar[event->BaseVarIndex + 1] = CO_Limit;
+                        log = F("MQ7: CO_Limit: ");
+                        log += CO_Limit;
+                        addLog(LOG_LEVEL_INFO, log);
+/*                        log = F("Interval Millis ");
+                        log += currentMillis - previousMillis;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Current State: ");
+                        log += CurrentState;
+                        addLog(LOG_LEVEL_INFO, log);
+                        log = F("Sensor Voltage: ");
+                        log += SensorVoltage;
+                        addLog(LOG_LEVEL_INFO, log);	*/
                         NextState = CAL_WARMUP;
                         previousMillis = currentMillis;
                     }
+                    CurrentState = NextState;
                     break;
                 }
-                default:
+                /*default:
                 {
                     CurrentState = CAL_WARMUP;
                     NextState = CAL_WARMUP;
                     break;
-                }
+                }*/
             }
-
-            UserVar[event->BaseVarIndex + 1] = digitalRead(Plugin_MQ7_CO_Limit_Pin);
-            String log = F("MQ7: CO_Limit: ");
-            log += UserVar[event->BaseVarIndex + 1];
-            addLog(LOG_LEVEL_INFO, log);
-            log = F("Current State: ");
+/*
+            String log = F("Current State: ");
             log += CurrentState;
             addLog(LOG_LEVEL_INFO, log);
             log = F("Sensor Voltage: ");
             log += SensorVoltage;
             addLog(LOG_LEVEL_INFO, log);
-
+*/
             success = true;
             break;
         }
